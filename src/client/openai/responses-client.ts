@@ -5,6 +5,7 @@ import {
 } from 'vscode';
 import { createSimpleHttpLogger } from '../../logger';
 import type { ProviderHttpLogger, RequestLogger } from '../../logger';
+import { isCodexEventStreamDebugEnabled } from '../../logger';
 import { ThinkingBlockMetadata } from '../types';
 import { FeatureId } from '../definitions';
 import { ApiProvider } from '../interface';
@@ -873,8 +874,35 @@ export class OpenAIResponsesProvider implements ApiProvider {
     includeResponseIdInMarker: boolean,
   ): AsyncGenerator<vscode.LanguageModelResponsePart2> {
     let usage: ResponseUsage | undefined;
+    const emittedFunctionCallIds = new Set<string>();
+    const codexEventStreamDebugEnabled =
+      this.config.type === 'openai-codex' && isCodexEventStreamDebugEnabled();
 
     const recordFirstToken = createFirstTokenRecorder(performanceTrace);
+
+    const emitFunctionCallPart = (
+      item: ResponseFunctionToolCall,
+    ): vscode.LanguageModelToolCallPart | undefined => {
+      const callId =
+        typeof item.call_id === 'string' && item.call_id
+          ? item.call_id
+          : undefined;
+      const name =
+        typeof item.name === 'string' && item.name ? item.name : undefined;
+
+      if (!callId || !name || emittedFunctionCallIds.has(callId)) {
+        return undefined;
+      }
+
+      emittedFunctionCallIds.add(callId);
+      const argumentsJson =
+        typeof item.arguments === 'string' ? item.arguments : '{}';
+      return new vscode.LanguageModelToolCallPart(
+        callId,
+        name,
+        this.parseArguments(argumentsJson),
+      );
+    };
 
     for await (const event of stream) {
       if (token.isCancellationRequested) {
@@ -882,6 +910,26 @@ export class OpenAIResponsesProvider implements ApiProvider {
       }
 
       logger.providerResponseChunk(JSON.stringify(event));
+      if (codexEventStreamDebugEnabled) {
+        let extra = '';
+        switch (event.type) {
+          case 'response.output_item.added':
+          case 'response.output_item.done':
+            extra = ` item_type=${event.item.type}`;
+            if (event.item.type === 'function_call') {
+              extra += ` call_id=${event.item.call_id} tool=${event.item.name}`;
+            }
+            break;
+          case 'response.completed': {
+            const functionCallCount = event.response.output.filter(
+              (item) => item.type === 'function_call',
+            ).length;
+            extra = ` output_count=${event.response.output.length} function_call_count=${functionCallCount}`;
+            break;
+          }
+        }
+        logger.verbose(`[codex-debug] event=${event.type}${extra}`, true);
+      }
 
       recordFirstToken();
 
@@ -919,11 +967,10 @@ export class OpenAIResponsesProvider implements ApiProvider {
         case 'response.output_item.done': {
           const item = event.item;
           if (item.type === 'function_call') {
-            yield new vscode.LanguageModelToolCallPart(
-              item.call_id,
-              item.name,
-              this.parseArguments(item.arguments),
-            );
+            const part = emitFunctionCallPart(item);
+            if (part) {
+              yield part;
+            }
           }
           break;
         }
@@ -931,6 +978,16 @@ export class OpenAIResponsesProvider implements ApiProvider {
         case 'response.completed': {
           const response = event.response;
           usage = response.usage ?? undefined;
+
+          for (const item of response.output) {
+            if (item.type !== 'function_call') {
+              continue;
+            }
+            const part = emitFunctionCallPart(item);
+            if (part) {
+              yield part;
+            }
+          }
 
           yield* this.extractThinkingParts(
             response.output.filter((v) => v.type === 'reasoning'),
