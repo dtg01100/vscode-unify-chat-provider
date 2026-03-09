@@ -61,6 +61,9 @@ import { randomUUID } from 'crypto';
 import { ProviderConfig, ModelConfig, PerformanceTrace } from '../../types';
 
 const VOLC_CONTEXT_CACHE_MAX_TTL_SECONDS = 604_800;
+const PREVIOUS_RESPONSE_ID_ERROR_CODES = new Set<string>([
+  'invalid_previous_response_id',
+]);
 
 type ConvertedMessagesResult = {
   input: ResponseInput;
@@ -68,6 +71,73 @@ type ConvertedMessagesResult = {
   previousResponseId?: string;
   inputAfterPreviousResponse?: ResponseInputItem[];
 };
+
+type ResponseContinuation = {
+  previousResponseId: string;
+  inputAfterPreviousResponse: ResponseInputItem[];
+};
+
+type OpenAIResponsesRequestBody = ResponseCreateParamsBase & {
+  conversation?: unknown;
+  previous_response_id?: string;
+};
+
+type ExtractedResponseError = {
+  message: string;
+  source: 'generic' | 'sdk' | 'stream';
+  status?: number;
+  code?: string;
+  type?: string;
+  param?: string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readStringField(
+  record: Record<string, unknown>,
+  key: string,
+): string | undefined {
+  const value = record[key];
+  return typeof value === 'string' && value.trim() ? value : undefined;
+}
+
+function readNumberField(
+  record: Record<string, unknown>,
+  key: string,
+): number | undefined {
+  const value = record[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+class OpenAIResponsesRequestError extends Error {
+  readonly source: 'stream' | 'generic';
+  readonly status?: number;
+  readonly code?: string;
+  readonly type?: string;
+  readonly param?: string;
+
+  constructor(
+    message: string,
+    options: {
+      source?: 'stream' | 'generic';
+      status?: number;
+      code?: string;
+      type?: string;
+      param?: string;
+    } = {},
+  ) {
+    super(message);
+    this.name = 'OpenAIResponsesRequestError';
+    this.source = options.source ?? 'generic';
+    this.status = options.status;
+    this.code = options.code;
+    this.type = options.type;
+    this.param = options.param;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
 
 export class OpenAIResponsesProvider implements ApiProvider {
   protected readonly baseUrl: string;
@@ -150,7 +220,6 @@ export class OpenAIResponsesProvider implements ApiProvider {
     encodedModelId: string,
     messages: readonly vscode.LanguageModelChatRequestMessage[],
     expectedIdentity: string,
-    enableVolcContextCacheLinking: boolean,
   ): ConvertedMessagesResult {
     let firstSessionId: string | null = null;
     let latestResponseId: string | undefined;
@@ -207,8 +276,11 @@ export class OpenAIResponsesProvider implements ApiProvider {
                 if (firstSessionId == null && sessionId) {
                   firstSessionId = sessionId;
                 }
-                if (enableVolcContextCacheLinking) {
+                if (typeof responseId === 'string' && responseId.trim()) {
                   latestResponseId = responseId;
+                  outItemsAfterLatestResponse = [];
+                } else {
+                  latestResponseId = undefined;
                   outItemsAfterLatestResponse = [];
                 }
                 const item: EasyInputMessage = {
@@ -250,7 +322,7 @@ export class OpenAIResponsesProvider implements ApiProvider {
       input: outItems,
       sessionId: firstSessionId ?? this.generateSessionId(),
     };
-    if (enableVolcContextCacheLinking && latestResponseId !== undefined) {
+    if (latestResponseId !== undefined) {
       result.previousResponseId = latestResponseId;
       result.inputAfterPreviousResponse = outItemsAfterLatestResponse;
     }
@@ -528,8 +600,6 @@ export class OpenAIResponsesProvider implements ApiProvider {
   private applyVolcContextCaching(
     model: ModelConfig,
     baseBody: ResponseCreateParamsBase,
-    previousResponseId: string | undefined,
-    inputAfterPreviousResponse: ResponseInputItem[] | undefined,
   ): boolean {
     if (!this.shouldEnableVolcContextCaching(model)) {
       return false;
@@ -542,15 +612,6 @@ export class OpenAIResponsesProvider implements ApiProvider {
     }
 
     baseBody.caching = { type: 'enabled' };
-
-    if (
-      previousResponseId &&
-      inputAfterPreviousResponse &&
-      inputAfterPreviousResponse.length > 0
-    ) {
-      baseBody.previous_response_id = previousResponseId;
-      baseBody.input = inputAfterPreviousResponse;
-    }
 
     const explicitTtlSeconds = this.resolveExplicitContextCacheTtlSeconds();
     if (explicitTtlSeconds !== undefined) {
@@ -567,6 +628,166 @@ export class OpenAIResponsesProvider implements ApiProvider {
     sessionId: string,
     baseBody: ResponseCreateParamsBase,
   ) {}
+
+  private resolveResponseContinuation(
+    baseBody: ResponseCreateParamsBase,
+    previousResponseId: string | undefined,
+    inputAfterPreviousResponse: ResponseInputItem[] | undefined,
+  ): ResponseContinuation | undefined {
+    if (
+      typeof previousResponseId !== 'string' ||
+      !previousResponseId.trim() ||
+      inputAfterPreviousResponse === undefined ||
+      inputAfterPreviousResponse.length === 0
+    ) {
+      return undefined;
+    }
+
+    const body = baseBody as OpenAIResponsesRequestBody;
+    if (body.store === false) {
+      return undefined;
+    }
+    if (body.conversation !== undefined && body.conversation !== null) {
+      return undefined;
+    }
+
+    return {
+      previousResponseId: previousResponseId.trim(),
+      inputAfterPreviousResponse,
+    };
+  }
+
+  private buildRequestBodyForAttempt(
+    baseBody: ResponseCreateParamsBase,
+    fullInput: OpenAIResponsesRequestBody['input'],
+    continuation: ResponseContinuation | undefined,
+    useContinuation: boolean,
+    stream: boolean,
+  ): ResponseCreateParamsBase {
+    const body: OpenAIResponsesRequestBody = {
+      ...(baseBody as OpenAIResponsesRequestBody),
+      input: fullInput,
+      stream,
+    };
+
+    delete body.previous_response_id;
+
+    if (useContinuation && continuation) {
+      body.previous_response_id = continuation.previousResponseId;
+      body.input = continuation.inputAfterPreviousResponse;
+    }
+
+    return body;
+  }
+
+  private shouldIncludeResponseIdInMarker(
+    baseBody: ResponseCreateParamsBase,
+  ): boolean {
+    return baseBody.store !== false;
+  }
+
+  private extractResponseError(error: unknown): ExtractedResponseError {
+    const fallbackMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === 'string'
+          ? error
+          : 'Unknown error';
+
+    const initial: ExtractedResponseError =
+      error instanceof OpenAIResponsesRequestError
+        ? {
+            message: error.message,
+            source: error.source,
+            status: error.status,
+            code: error.code,
+            type: error.type,
+            param: error.param,
+          }
+        : {
+            message: fallbackMessage,
+            source: 'generic',
+          };
+
+    if (!isRecord(error)) {
+      return initial;
+    }
+
+    const nested = error['error'];
+    const nestedRecord = isRecord(nested) ? nested : undefined;
+
+    const directMessage = readStringField(error, 'message');
+    const nestedMessage = nestedRecord
+      ? readStringField(nestedRecord, 'message')
+      : undefined;
+    const directStatus = readNumberField(error, 'status');
+    const nestedStatus = nestedRecord
+      ? readNumberField(nestedRecord, 'status')
+      : undefined;
+    const directCode = readStringField(error, 'code');
+    const nestedCode = nestedRecord
+      ? readStringField(nestedRecord, 'code')
+      : undefined;
+    const directType = readStringField(error, 'type');
+    const nestedType = nestedRecord
+      ? readStringField(nestedRecord, 'type')
+      : undefined;
+    const directParam = readStringField(error, 'param');
+    const nestedParam = nestedRecord
+      ? readStringField(nestedRecord, 'param')
+      : undefined;
+
+    return {
+      message: directMessage ?? nestedMessage ?? initial.message,
+      source:
+        initial.source !== 'generic' ||
+        directStatus !== undefined ||
+        directCode !== undefined ||
+        directType !== undefined ||
+        directParam !== undefined ||
+        nestedStatus !== undefined ||
+        nestedCode !== undefined ||
+        nestedType !== undefined ||
+        nestedParam !== undefined
+          ? initial.source === 'generic'
+            ? 'sdk'
+            : initial.source
+          : initial.source,
+      status: initial.status ?? directStatus ?? nestedStatus,
+      code: initial.code ?? directCode ?? nestedCode,
+      type: initial.type ?? directType ?? nestedType,
+      param: initial.param ?? directParam ?? nestedParam,
+    };
+  }
+
+  private isPreviousResponseIdTextMatch(message: string): boolean {
+    const normalized = message.toLowerCase();
+    return (
+      normalized.includes('previous_response_id') ||
+      normalized.includes('previous response id') ||
+      normalized.includes('previous-response-id')
+    );
+  }
+
+  private shouldRetryWithoutPreviousResponseId(error: unknown): boolean {
+    const details = this.extractResponseError(error);
+
+    if (details.param === 'previous_response_id') {
+      return true;
+    }
+
+    if (
+      typeof details.code === 'string' &&
+      PREVIOUS_RESPONSE_ID_ERROR_CODES.has(details.code)
+    ) {
+      return true;
+    }
+
+    return (
+      details.source === 'stream' &&
+      this.isPreviousResponseIdTextMatch(details.message)
+    );
+  }
 
   async *streamChat(
     encodedModelId: string,
@@ -589,8 +810,6 @@ export class OpenAIResponsesProvider implements ApiProvider {
     }
 
     const expectedIdentity = createStatefulMarkerIdentity(this.config, model);
-    const enableVolcContextCacheLinking =
-      this.shouldEnableVolcContextCaching(model);
     const sanitizedMessages = sanitizeMessagesForModelSwitch(messages, {
       modelId: encodedModelId,
       expectedIdentity,
@@ -605,7 +824,6 @@ export class OpenAIResponsesProvider implements ApiProvider {
       encodedModelId,
       sanitizedMessages,
       expectedIdentity,
-      enableVolcContextCacheLinking,
     );
     const tools = this.convertTools(options.tools);
     const toolChoice = this.convertToolChoice(options.toolMode, tools);
@@ -649,12 +867,16 @@ export class OpenAIResponsesProvider implements ApiProvider {
     this.handleRequest(sessionId, baseBody);
 
     Object.assign(baseBody, this.config.extraBody, model.extraBody);
-    const appliedVolcContextCaching = this.applyVolcContextCaching(
-      model,
+    this.applyVolcContextCaching(model, baseBody);
+
+    const includeResponseIdInMarker =
+      this.shouldIncludeResponseIdInMarker(baseBody);
+    const continuation = this.resolveResponseContinuation(
       baseBody,
       previousResponseId,
       inputAfterPreviousResponse,
     );
+    const fullInput = baseBody.input;
 
     const headers = this.buildHeaders(
       sessionId,
@@ -673,47 +895,83 @@ export class OpenAIResponsesProvider implements ApiProvider {
     performanceTrace.ttf = Date.now() - performanceTrace.tts;
 
     try {
-      if (streamEnabled) {
-        const responseTimeoutMs = resolveChatNetwork(this.config).timeout
-          .response;
+      let shouldUseContinuation = continuation !== undefined;
 
-        const stream = await client.responses.create(
-          { ...baseBody, stream: true },
-          {
-            headers,
-            signal: abortController.signal,
-          },
+      while (true) {
+        performanceTrace.ttf = Date.now() - performanceTrace.tts;
+        const requestBody = this.buildRequestBodyForAttempt(
+          baseBody,
+          fullInput,
+          continuation,
+          shouldUseContinuation,
+          streamEnabled,
         );
-        const timedStream = withIdleTimeout(
-          stream,
-          responseTimeoutMs,
-          abortController.signal,
-        );
-        yield* this.parseMessageStream(
-          timedStream,
-          sessionId,
-          token,
-          logger,
-          performanceTrace,
-          expectedIdentity,
-          appliedVolcContextCaching,
-        );
-      } else {
-        const data = await client.responses.create(
-          { ...baseBody, stream: false },
-          {
-            headers,
-            signal: abortController.signal,
-          },
-        );
-        yield* this.parseMessage(
-          data,
-          sessionId,
-          performanceTrace,
-          logger,
-          expectedIdentity,
-          appliedVolcContextCaching,
-        );
+        let emittedPartCount = 0;
+
+        try {
+          if (streamEnabled) {
+            const responseTimeoutMs =
+              resolveChatNetwork(this.config).timeout.response;
+
+            const stream = await client.responses.create(
+              { ...requestBody, stream: true },
+              {
+                headers,
+                signal: abortController.signal,
+              },
+            );
+            const timedStream = withIdleTimeout(
+              stream,
+              responseTimeoutMs,
+              abortController.signal,
+            );
+            for await (const part of this.parseMessageStream(
+              timedStream,
+              sessionId,
+              token,
+              logger,
+              performanceTrace,
+              expectedIdentity,
+              includeResponseIdInMarker,
+            )) {
+              emittedPartCount++;
+              yield part;
+            }
+          } else {
+            const data = await client.responses.create(
+              { ...requestBody, stream: false },
+              {
+                headers,
+                signal: abortController.signal,
+              },
+            );
+            for await (const part of this.parseMessage(
+              data,
+              sessionId,
+              performanceTrace,
+              logger,
+              expectedIdentity,
+              includeResponseIdInMarker,
+            )) {
+              emittedPartCount++;
+              yield part;
+            }
+          }
+          break;
+        } catch (error) {
+          if (
+            !shouldUseContinuation ||
+            emittedPartCount > 0 ||
+            !this.shouldRetryWithoutPreviousResponseId(error)
+          ) {
+            throw error;
+          }
+
+          logger.verbose(
+            'Provider rejected previous_response_id; retrying without previous_response_id.',
+          );
+          shouldUseContinuation = false;
+        }
       }
     } finally {
       cancellationListener.dispose();
@@ -959,26 +1217,40 @@ export class OpenAIResponsesProvider implements ApiProvider {
         }
 
         case 'response.failed':
-          throw new Error(
-            `OpenAI Response Failed: ${
-              event.response.error
-                ? `${event.response.error.message}(${event.response.error.code})`
-                : 'unknown error'
-            }`,
+          if (event.response.error) {
+            const responseError = this.extractResponseError(event.response.error);
+            throw new OpenAIResponsesRequestError(
+              `OpenAI Response Failed: ${responseError.message}${
+                responseError.code ? ` (${responseError.code})` : ''
+              }`,
+              {
+                source: 'stream',
+                code: responseError.code,
+                type: responseError.type,
+                param: responseError.param,
+                status: responseError.status,
+              },
+            );
+          }
+          throw new OpenAIResponsesRequestError(
+            'OpenAI Response Failed: unknown error',
+            { source: 'stream' },
           );
 
         case 'response.incomplete':
-          throw new Error(
+          throw new OpenAIResponsesRequestError(
             `OpenAI Response Incomplete: ${
               event.response.incomplete_details?.reason || 'unknown reason'
             }`,
+            { source: 'stream' },
           );
 
         case 'error':
-          throw new Error(
+          throw new OpenAIResponsesRequestError(
             `OpenAI API Error: ${event.message}${
               event.code ? ` (${event.code})` : ''
             }`,
+            { source: 'stream', code: event.code ?? undefined },
           );
 
         default:
