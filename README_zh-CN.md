@@ -464,32 +464,48 @@ VS Code 的 Copilot Chat 本身就支持登录 GitHub Copilot 账号，所以一
 
 以下字段对应 `ModelConfig`（导入/导出 JSON 使用的字段名）。
 
-| 名称              | ID                         | 介绍                                                                             |
-| ----------------- | -------------------------- | -------------------------------------------------------------------------------- |
-| 模型 ID           | `id`                       | 模型标识（可使用 `#xxx` 后缀创建同一模型的多份配置；发送请求时会自动移除后缀）。 |
-| 显示名称          | `name`                     | UI 展示用名称（未填写时通常显示 `id`）。                                         |
-| 模型家族          | `family`                   | 便于分组/匹配的一类模型标识（如 `gpt-4`、`claude-3`）。                          |
-| 最大输入 Tokens   | `maxInputTokens`           | 最大输入/上下文 tokens（部分供应商语义为“输入+输出”总上下文）。                  |
-| 最大输出 Tokens   | `maxOutputTokens`          | 最大生成 tokens（部分供应商要求必填，如 Anthropic 的 `max_tokens`）。            |
-| 分词器            | `tokenizer`                | 用于 VS Code Token 计数（`provideTokenCount`）的分词器。默认：`default`。        |
-| Token 计数倍率    | `tokenCountMultiplier`     | 在返回给 VS Code 前，对 Token 计数结果乘以该倍率。默认：`1.0`。                  |
-| 模型能力          | `capabilities`             | 能力声明（用于 UI 与路由逻辑判断，部分场景也会影响请求构造）。                   |
-| 工具调用能力      | `capabilities.toolCalling` | 是否支持工具/函数调用；若为数字则表示最多工具数量。                              |
-| 图片输入能力      | `capabilities.imageInput`  | 是否支持图像输入。                                                               |
-| 流式输出          | `stream`                   | 是否启用流式响应（未设置则使用默认行为）。                                       |
-| Temperature       | `temperature`              | 采样温度（随机性）。                                                             |
-| Top-K             | `topK`                     | Top-k 采样。                                                                     |
-| Top-P             | `topP`                     | Top-p（nucleus）采样。                                                           |
-| Frequency Penalty | `frequencyPenalty`         | 频率惩罚。                                                                       |
-| Presence Penalty  | `presencePenalty`          | 存在惩罚。                                                                       |
-| 并行工具调用      | `parallelToolCalling`      | 是否允许并行工具调用（`true` 开启、`false` 禁用、`undefined` 使用默认）。        |
-| 回复冗长度        | `verbosity`                | 约束回答冗长程度：`low` / `medium` / `high`（并非所有供应商支持）。              |
-| 思考配置          | `thinking`                 | 思考/推理相关配置（不同供应商支持程度不同）。                                    |
-| 思考模式          | `thinking.type`            | `enabled` / `disabled` / `auto`                                                  |
-| 思考预算 Tokens   | `thinking.budgetTokens`    | 思考 token 预算。                                                                |
-| 思考强度          | `thinking.effort`          | `none` / `minimal` / `low` / `medium` / `high` / `xhigh`                         |
-| 额外 Header       | `extraHeaders`             | 会附加到该模型请求的 HTTP Header（`Record<string, string>`）。                   |
-| 额外 Body 字段    | `extraBody`                | 会附加到该模型请求 body 的额外字段（`Record<string, unknown>`）。                |
+| 名称              | ID                         | 介绍                                                                                                                                                                                                                                                          |
+| ----------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 模型 ID           | `id`                       | 模型标识（可使用 `#xxx` 后缀创建同一模型的多份配置；发送请求时会自动移除后缀）。                                                                                                                                                                              |
+| 显示名称          | `name`                     | UI 展示用名称（未填写时通常显示 `id`）。                                                                                                                                                                                                                      |
+| 模型家族          | `family`                   | 便于分组/匹配的一类模型标识（如 `gpt-4`、`claude-3`）。                                                                                                                                                                                                       |
+| 最大输入 Tokens   | `maxInputTokens`           | 最大输入/上下文 tokens（部分供应商语义为“输入+输出”总上下文）。                                                                                                                                                                                               |
+| 最大输出 Tokens   | `maxOutputTokens`          | 最大生成 tokens（部分供应商要求必填，如 Anthropic 的 `max_tokens`）。                                                                                                                                                                                         |
+| 分词器            | `tokenizer`                | 用于 VS Code Token 计数（`provideTokenCount`）的分词器。默认：`default`。                                                                                                                                                                                     |
+| Token 计数倍率    | `tokenCountMultiplier`     | 在返回给 VS Code 前，对 Token 计数结果乘以该倍率。默认：`1.0`。                                                                                                                                                                                               |
+| 模型能力          | `capabilities`             | 能力声明（用于 UI 与路由逻辑判断，部分场景也会影响请求构造）。                                                                                                                                                                                                |
+| 工具调用能力      | `capabilities.toolCalling` | 是否支持工具/函数调用；若为数字则表示最多工具数量。                                                                                                                                                                                                           |
+| 图片输入能力      | `capabilities.imageInput`  | 是否支持图像输入。                                                                                                                                                                                                                                            |
+| 流式输出          | `stream`                   | 是否启用流式响应（未设置则使用默认行为）。                                                                                                                                                                                                                    |
+| Temperature       | `temperature`              | 采样温度（随机性）。                                                                                                                                                                                                                                          |
+| Top-K             | `topK`                     | Top-k 采样。                                                                                                                                                                                                                                                  |
+| Top-P             | `topP`                     | Top-p（nucleus）采样。                                                                                                                                                                                                                                        |
+| Frequency Penalty | `frequencyPenalty`         | 频率惩罚。                                                                                                                                                                                                                                                    |
+| Presence Penalty  | `presencePenalty`          | 存在惩罚。                                                                                                                                                                                                                                                    |
+| 并行工具调用      | `parallelToolCalling`      | 是否允许并行工具调用（`true` 开启、`false` 禁用、`undefined` 使用默认）。                                                                                                                                                                                     |
+| 服务层级          | `serviceTier`              | 官方 OpenAI / Anthropic 请求的处理层级。`auto` 表示让供应商自动选择；`standard` 会映射到 OpenAI 的 `default` 与 Anthropic 的 `standard_only`；`flex` / `scale` / `priority` 仅对 OpenAI 原生支持，对 Anthropic 会回退到 `standard_only`。留空表示省略该字段。 |
+| 回复冗长度        | `verbosity`                | 约束回答冗长程度：`low` / `medium` / `high`（并非所有供应商支持）。                                                                                                                                                                                           |
+| 思考配置          | `thinking`                 | 思考/推理相关配置（不同供应商支持程度不同）。                                                                                                                                                                                                                 |
+| 思考模式          | `thinking.type`            | `enabled` / `disabled` / `auto`                                                                                                                                                                                                                               |
+| 思考预算 Tokens   | `thinking.budgetTokens`    | 思考 token 预算。                                                                                                                                                                                                                                             |
+| 思考强度          | `thinking.effort`          | `none` / `minimal` / `low` / `medium` / `high` / `xhigh`                                                                                                                                                                                                      |
+| 额外 Header       | `extraHeaders`             | 会附加到该模型请求的 HTTP Header（`Record<string, string>`）。                                                                                                                                                                                                |
+| 额外 Body 字段    | `extraBody`                | 会附加到该模型请求 body 的额外字段（`Record<string, unknown>`）。                                                                                                                                                                                             |
+
+### Service Tier 说明
+
+- 仅当供应商 `baseUrl` 是官方 OpenAI 或 Anthropic 接口时，扩展才会自动发送 `service_tier`。
+- 留空 `serviceTier` 表示不发送 `service_tier` 字段，保持供应商默认行为。
+- 官方 OpenAI API 的映射关系：
+  - `auto` -> `auto`
+  - `standard` -> `default`
+  - `flex` -> `flex`
+  - `scale` -> `scale`
+  - `priority` -> `priority`
+- 官方 Anthropic API 的映射关系：
+  - `auto` -> `auto`
+  - `standard` / `flex` / `scale` / `priority` -> `standard_only`
+- 对于非官方中转、代理或兼容接口，扩展不会自动注入 `service_tier`，因为不同供应商的语义可能并不一致。
 
 </details>
 
