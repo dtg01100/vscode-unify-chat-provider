@@ -1,5 +1,13 @@
 # Changelog
 
+## v5.3.0 - 2026-03-10
+
+### Features
+- add transport mode configuration and WebSocket support for OpenAI Responses provider (36b1931, SmallMain)
+
+### Fixes
+- service tier resolution for non-OpenAI/Anthropic providers (8877ca9, SmallMain)
+
 ## v5.2.2 - 2026-03-10
 
 ### Fixes
