@@ -801,10 +801,7 @@ export class OpenAIResponsesProvider implements ApiProvider {
       return true;
     }
 
-    return (
-      details.source === 'stream' &&
-      this.isPreviousResponseIdTextMatch(details.message)
-    );
+    return this.isPreviousResponseIdTextMatch(details.message);
   }
 
   async *streamChat(
@@ -846,6 +843,13 @@ export class OpenAIResponsesProvider implements ApiProvider {
     const tools = this.convertTools(options.tools);
     const toolChoice = this.convertToolChoice(options.toolMode, tools);
     const streamEnabled = model.stream ?? true;
+    const supportsPreviousResponseId =
+      this.shouldEnableVolcContextCaching(model) ||
+      isFeatureSupported(
+        FeatureId.OpenAIUsePreviousResponseId,
+        this.config,
+        model,
+      );
     const useThinkingParam2 = isFeatureSupported(
       FeatureId.OpenAIUseThinkingParam2,
       this.config,
@@ -889,11 +893,13 @@ export class OpenAIResponsesProvider implements ApiProvider {
 
     const includeResponseIdInMarker =
       this.shouldIncludeResponseIdInMarker(baseBody);
-    const continuation = this.resolveResponseContinuation(
-      baseBody,
-      previousResponseId,
-      inputAfterPreviousResponse,
-    );
+    const continuation = supportsPreviousResponseId
+      ? this.resolveResponseContinuation(
+          baseBody,
+          previousResponseId,
+          inputAfterPreviousResponse,
+        )
+      : undefined;
     const fullInput = baseBody.input;
 
     const headers = this.buildHeaders(
