@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.2.2 - 2026-03-10
+
+### Fixes
+- Antigravity: normalize Claude model ID before appending -thinking suffix (526c467, SmallMain)
+- enhance model handling by adding models array to ModelViewRoute and updating related screens (eed4b64, SmallMain)
+- update section name from 'parameters' to 'capabilities' in model form schema (05e1031, SmallMain)
+
 ## v5.2.1 - 2026-03-10
 
 ### Fixes
