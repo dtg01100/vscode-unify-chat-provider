@@ -342,6 +342,7 @@ export class ConfigStore {
       ] as const),
     );
 
+    provider.transport = this.normalizeTransportMode(provider.transport);
     provider.extraHeaders = this.normalizeStringRecord(provider.extraHeaders);
     provider.extraBody = this.normalizeObjectRecord(provider.extraBody);
     provider.contextCache = this.normalizeContextCacheConfig(provider.contextCache);
@@ -356,6 +357,14 @@ export class ConfigStore {
     }
 
     return provider;
+  }
+
+  private normalizeTransportMode(
+    raw: unknown,
+  ): ProviderConfig['transport'] | undefined {
+    return raw === 'auto' || raw === 'sse' || raw === 'websocket'
+      ? raw
+      : undefined;
   }
 
   private normalizeContextCacheConfig(

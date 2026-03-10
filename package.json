@@ -522,6 +522,20 @@
                   }
                 }
               },
+              "transport": {
+                "type": "string",
+                "description": "%configuration.endpoints.transport.description%",
+                "enum": [
+                  "auto",
+                  "sse",
+                  "websocket"
+                ],
+                "enumDescriptions": [
+                  "%configuration.endpoints.transport.enumDescriptions.0%",
+                  "%configuration.endpoints.transport.enumDescriptions.1%",
+                  "%configuration.endpoints.transport.enumDescriptions.2%"
+                ]
+              },
               "extraHeaders": {
                 "type": "object",
                 "description": "%configuration.endpoints.extraHeaders.description%",
@@ -916,6 +930,7 @@
   "devDependencies": {
     "@types/node": "^22",
     "@types/vscode": "^1.104.0",
+    "@types/ws": "^8.18.1",
     "@vscode/l10n-dev": "^0.0.35",
     "typescript": "^5.9.3"
   },
@@ -927,6 +942,7 @@
     "@vscode/l10n": "^0.0.18",
     "ollama": "^0.6.3",
     "openai": "^6.27.0",
-    "tiktoken": "^1.0.22"
+    "tiktoken": "^1.0.22",
+    "ws": "^8.19.0"
   }
 }

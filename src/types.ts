@@ -23,6 +23,12 @@ export interface ProviderConfig {
   /** Base URL for the API (e.g., https://api.anthropic.com) */
   baseUrl: string;
   /**
+   * Preferred transport mode for this provider.
+   *
+   * Leave undefined to let the provider choose its default behavior.
+   */
+  transport?: 'auto' | 'sse' | 'websocket';
+  /**
    * Unified authentication configuration.
    */
   auth?: AuthConfig;
