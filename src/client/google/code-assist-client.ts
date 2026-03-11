@@ -1776,9 +1776,6 @@ export abstract class GoogleCodeAssistProvider extends GoogleAIStudioProvider {
 
     const streamEnabled = model.stream ?? true;
     const chatNetwork = resolveChatNetwork(this.config);
-    const requestTimeoutMs = streamEnabled
-      ? chatNetwork.timeout.connection
-      : chatNetwork.timeout.response;
 
     const requestedModelId = getBaseModelId(model.id);
     const preferredGemini3ThinkingLevel =
@@ -2039,7 +2036,8 @@ export abstract class GoogleCodeAssistProvider extends GoogleAIStudioProvider {
 
       const effectiveRetryConfig = retryConfig ?? DEFAULT_CHAT_RETRY_CONFIG;
       const baseFetcher = createCustomFetch({
-        connectionTimeoutMs: requestTimeoutMs,
+        connectionTimeoutMs: chatNetwork.timeout.connection,
+        responseTimeoutMs: chatNetwork.timeout.response,
         logger,
         retryConfig: { ...effectiveRetryConfig, maxRetries: 0 },
         type: 'chat',

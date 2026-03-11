@@ -263,9 +263,6 @@ export class OpenAIResponsesProvider implements ApiProvider {
     const effectiveTimeout =
       chatNetwork?.timeout ?? DEFAULT_NORMAL_TIMEOUT_CONFIG;
 
-    const requestTimeoutMs = stream
-      ? effectiveTimeout.connection
-      : effectiveTimeout.response;
     const sdkTimeoutMs = resolveOpenAISdkTimeoutMs(effectiveTimeout, stream);
 
     const token = getToken(credential);
@@ -276,7 +273,8 @@ export class OpenAIResponsesProvider implements ApiProvider {
       maxRetries: 0,
       timeout: sdkTimeoutMs,
       fetch: createCustomFetch({
-        connectionTimeoutMs: requestTimeoutMs,
+        connectionTimeoutMs: effectiveTimeout.connection,
+        responseTimeoutMs: effectiveTimeout.response,
         logger,
         retryConfig: chatNetwork?.retry,
         type: mode,

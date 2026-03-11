@@ -5,6 +5,8 @@ import type {
   RequestLogger,
 } from '../logger';
 import * as vscode from 'vscode';
+import { Agent } from 'undici';
+import type { Dispatcher } from 'undici';
 import type { AuthTokenInfo } from '../auth/types';
 import { ModelConfig, PerformanceTrace, ProviderConfig } from '../types';
 import {
@@ -453,6 +455,7 @@ export function parseToolArguments(
  */
 export interface CreateCustomFetchOptions {
   connectionTimeoutMs: number;
+  responseTimeoutMs?: number;
   logger?: ProviderHttpLogger;
   urlTransformer?: (url: string) => string;
   retryConfig?: RetryConfig;
@@ -464,6 +467,22 @@ export interface CreateCustomFetchOptions {
   abortSignal?: AbortSignal;
 }
 
+const MAX_SAFE_FETCH_TIMEOUT_MS = 0x7fffffff;
+
+function normalizeFetchTimeoutMs(
+  timeoutMs: number | undefined,
+): number | undefined {
+  if (
+    timeoutMs === undefined ||
+    !Number.isFinite(timeoutMs) ||
+    timeoutMs <= 0
+  ) {
+    return undefined;
+  }
+
+  return Math.min(Math.trunc(timeoutMs), MAX_SAFE_FETCH_TIMEOUT_MS);
+}
+
 /**
  * Create a custom fetch function with logging, retry, and timeout support.
  */
@@ -472,12 +491,34 @@ export function createCustomFetch(
 ): typeof fetch {
   const {
     connectionTimeoutMs,
+    responseTimeoutMs,
     logger,
     urlTransformer,
     retryConfig,
     type,
     abortSignal,
   } = options;
+  const normalizedConnectionTimeoutMs =
+    normalizeFetchTimeoutMs(connectionTimeoutMs);
+  const normalizedResponseTimeoutMs =
+    normalizeFetchTimeoutMs(responseTimeoutMs);
+  let sharedDispatcher: Dispatcher | undefined;
+
+  const getSharedDispatcher = (): Dispatcher | undefined => {
+    if (normalizedResponseTimeoutMs === undefined) {
+      return undefined;
+    }
+
+    sharedDispatcher ??= new Agent({
+      ...(normalizedConnectionTimeoutMs !== undefined
+        ? { connectTimeout: normalizedConnectionTimeoutMs }
+        : {}),
+      headersTimeout: normalizedResponseTimeoutMs,
+      bodyTimeout: normalizedResponseTimeoutMs,
+    });
+
+    return sharedDispatcher;
+  };
 
   const combineAbortSignals = (
     signals: Array<AbortSignal | null | undefined>,
@@ -545,9 +586,16 @@ export function createCustomFetch(
 
     const combined = combineAbortSignals([init?.signal, abortSignal]);
     try {
-      const response = await fetchWithRetry(url, {
+      const requestInit: RequestInit & { dispatcher?: Dispatcher } = {
         ...init,
         signal: combined.signal,
+      };
+      if (requestInit.dispatcher === undefined) {
+        requestInit.dispatcher = getSharedDispatcher();
+      }
+
+      const response = await fetchWithRetry(url, {
+        ...requestInit,
         logger,
         retryConfig:
           retryConfig ??

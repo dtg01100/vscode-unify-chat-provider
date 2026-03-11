@@ -262,15 +262,13 @@ export class OpenAICodexProvider extends OpenAIResponsesProvider {
     const effectiveTimeout =
       chatNetwork?.timeout ?? DEFAULT_NORMAL_TIMEOUT_CONFIG;
 
-    const requestTimeoutMs = stream
-      ? effectiveTimeout.connection
-      : effectiveTimeout.response;
     const sdkTimeoutMs = resolveOpenAISdkTimeoutMs(effectiveTimeout, stream);
 
     const token = getToken(credential);
 
     const baseFetch = createCustomFetch({
-      connectionTimeoutMs: requestTimeoutMs,
+      connectionTimeoutMs: effectiveTimeout.connection,
+      responseTimeoutMs: effectiveTimeout.response,
       logger,
       retryConfig: chatNetwork?.retry,
       urlTransformer:
