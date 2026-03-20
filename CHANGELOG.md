@@ -1,5 +1,39 @@
 # Changelog
 
+## v5.6.0 - 2026-03-20
+
+### Features
+- add support for Grok 4.20, MiniMax M2.7, M2.7 Highspeed, Mimo V2 Pro/Omni, GLM 5 Turbo, GPT-5.4 Mini/Nano models, remove iFlow provider (fd38b5d, SmallMain)
+- integrate Kilo API support and update documentation, note that I cannot properly confirm non-english documentation change (d116d62, dtg01100)
+- add Kilo Code provider support (5c60bb8, David Lafreniere)
+- implement normalizeToolInputSchema function and update input schema handling in providers (1900a19, SmallMain)
+- add reasoning summary level configuration and enhance thinking text handling (9efea80, SmallMain)
+- add reasoning summary level to ModelConfig and update related UI and localization.   Also correct duplicated reasoning content output, and suppress "Encrypted thinking..." placeholders when not needed. (be542ed, Matt Cowger)
+- add Nemotron 3 Super 120B A12B and Grok 4.20 Beta models support (1dd849b, SmallMain)
+
+### Fixes
+- openai: handle wrapped responses and improve choice index handling (73f8340, David Lam)
+- remove codex debug event stream configuration and related logging (e446489, SmallMain)
+- improve description formatting in configuration settings for clarity (c402a01, SmallMain)
+- remove autoFetchOfficialModels from Kilo Code provider (c72a0d0, dtg01100)
+- resolve PR #36 review comments for Kilo Code provider (9332bbf, David Lafreniere)
+- add encrypted thinking placeholder and update output handling in providers (a8d75aa, SmallMain)
+- suppress Anthropic usage-only empty responses (32aecc3, Matt Cowger)
+- gcli oauth fix (3a17975, David Lam)
+- reuse API key secret refs across synced devices (b7607f4, Matt Cowger)
+- improve codex tool-call streaming and debug logging (5d7e138, admin8548)
+- openai-chat-completion: guard missing stream delta to prevent crash (3f6a685, admin8548)
+
+### Refactors
+- remove unused reasoning checks and streamline summary handling (5115197, Matt Cowger)
+
+### Chores
+- update README (803b9ad, SmallMain)
+- update version to 5.5.0 in package-lock.json (2a1a3b9, Matt Cowger)
+
+### Other
+- Refine tool_calls condition in chat-completion-client (5cdd1c8, swg0101)
+
 ## v5.5.0 - 2026-03-11
 
 ### Features
