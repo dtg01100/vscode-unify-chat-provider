@@ -1,5 +1,10 @@
 # Changelog
 
+## v5.6.2 - 2026-03-22
+
+### Fixes
+- OpenAI providers support handling of the name field in the Get Available Models interface, allow any field to be searched, unable to modify transport mode and service level, UI blocking issues, and error message improvements for timeouts and network errors (ecb9948, SmallMain)
+
 ## v5.6.1 - 2026-03-20
 
 ### Features
