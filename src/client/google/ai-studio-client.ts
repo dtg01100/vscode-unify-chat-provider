@@ -572,9 +572,12 @@ export class GoogleAIStudioProvider implements ApiProvider {
       }
 
       if (isImageMarker(part)) {
-        if (role !== vscode.LanguageModelChatMessageRole.User) {
+        if (
+          role !== vscode.LanguageModelChatMessageRole.User &&
+          role !== 'from_tool_result'
+        ) {
           throw new Error(
-            'Image parts can only appear in user messages for this provider',
+            'Image parts can only appear in user messages or tool results for this provider',
           );
         }
         const mimeType = normalizeImageMimeType(part.mimeType);

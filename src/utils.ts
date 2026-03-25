@@ -1438,6 +1438,8 @@ const SUPPORTED_BASE64_IMAGE_MIME_TYPES = [
 type SupportedBase64ImageMimeType =
   (typeof SUPPORTED_BASE64_IMAGE_MIME_TYPES)[number];
 
+const OUTPUT_IMAGE_MIME_TYPE_PATTERN = /^image\/[a-z0-9.+-]+$/i;
+
 export function normalizeImageMimeType(
   mimeType: string,
 ): SupportedBase64ImageMimeType | undefined {
@@ -1449,6 +1451,50 @@ export function normalizeImageMimeType(
   )
     ? (mimeType as SupportedBase64ImageMimeType)
     : undefined;
+}
+
+export function normalizeOutputImageMimeType(
+  mimeType: string | undefined,
+  fallbackMimeType = 'image/png',
+): string {
+  const normalizedMimeType =
+    typeof mimeType === 'string' ? mimeType.trim().toLowerCase() : '';
+  if (!normalizedMimeType) {
+    return fallbackMimeType;
+  }
+
+  const normalizedSupportedMimeType = normalizeImageMimeType(
+    normalizedMimeType,
+  );
+  if (normalizedSupportedMimeType) {
+    return normalizedSupportedMimeType;
+  }
+
+  return OUTPUT_IMAGE_MIME_TYPE_PATTERN.test(normalizedMimeType)
+    ? normalizedMimeType
+    : fallbackMimeType;
+}
+
+export function createImageDataPartFromBase64(
+  base64Data: string,
+  mimeType?: string,
+  fallbackMimeType = 'image/png',
+): vscode.LanguageModelDataPart {
+  return new vscode.LanguageModelDataPart(
+    Buffer.from(base64Data, 'base64'),
+    normalizeOutputImageMimeType(mimeType, fallbackMimeType),
+  );
+}
+
+export function createImageDataPartFromBytes(
+  data: Uint8Array,
+  mimeType?: string,
+  fallbackMimeType = 'image/png',
+): vscode.LanguageModelDataPart {
+  return new vscode.LanguageModelDataPart(
+    data,
+    normalizeOutputImageMimeType(mimeType, fallbackMimeType),
+  );
 }
 
 export interface GetAllModelsOptions {

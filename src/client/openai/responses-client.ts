@@ -14,6 +14,7 @@ import { ApiProvider } from '../interface';
 import OpenAI from 'openai';
 import type { AuthTokenInfo } from '../../auth/types';
 import {
+  createImageDataPartFromBase64,
   decodeStatefulMarkerPart,
   createStatefulMarkerIdentity,
   DEFAULT_NORMAL_TIMEOUT_CONFIG,
@@ -123,6 +124,7 @@ type OpenAIResponsesRequestContext = {
   performanceTrace: PerformanceTrace;
   expectedIdentity: string;
   credential: AuthTokenInfo;
+  imageGenerationOutputMimeType: string;
 };
 
 type ResponseThinkingContentType = 'encrypted' | 'summary' | 'content';
@@ -130,6 +132,18 @@ type ResponseThinkingContentType = 'encrypted' | 'summary' | 'content';
 type ResponseThinkingOutputState = {
   lastType?: ResponseThinkingContentType;
 };
+
+type ResponseImageGenerationCall = Extract<
+  ResponseOutputItem,
+  { type: 'image_generation_call' }
+>;
+
+type ResponsesApiTool = NonNullable<ResponseCreateParamsBase['tools']>[number];
+
+type ResponseImageGenerationTool = Extract<
+  ResponsesApiTool,
+  { type: 'image_generation' }
+>;
 
 type OpenAIResponsesHttpRequestContext = OpenAIResponsesRequestContext & {
   continuation: ResponseContinuation | undefined;
@@ -146,6 +160,18 @@ type OpenAIResponsesWebSocketRequestContext = OpenAIResponsesRequestContext & {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isResponseImageGenerationCall(
+  item: ResponseOutputItem,
+): item is ResponseImageGenerationCall {
+  return item.type === 'image_generation_call';
+}
+
+function isResponseImageGenerationTool(
+  tool: ResponsesApiTool,
+): tool is ResponseImageGenerationTool {
+  return tool.type === 'image_generation';
 }
 
 function readStringField(
@@ -1198,6 +1224,8 @@ export class OpenAIResponsesProvider implements ApiProvider {
       performanceTrace,
       expectedIdentity,
       credential,
+      imageGenerationOutputMimeType:
+        this.resolveImageGenerationOutputMimeType(baseBody.tools),
     };
     const httpContext: OpenAIResponsesHttpRequestContext = {
       ...baseContext,
@@ -1335,6 +1363,7 @@ export class OpenAIResponsesProvider implements ApiProvider {
             context.expectedIdentity,
             context.includeResponseIdInMarker,
             context.streamEnabled ? 'sse' : 'http',
+            context.imageGenerationOutputMimeType,
           )) {
             emittedPartCount++;
             yield part;
@@ -1355,6 +1384,7 @@ export class OpenAIResponsesProvider implements ApiProvider {
             context.expectedIdentity,
             context.includeResponseIdInMarker,
             'http',
+            context.imageGenerationOutputMimeType,
           )) {
             emittedPartCount++;
             yield part;
@@ -1467,6 +1497,7 @@ export class OpenAIResponsesProvider implements ApiProvider {
           context.expectedIdentity,
           context.includeResponseIdInMarker,
           'websocket',
+          context.imageGenerationOutputMimeType,
         )) {
           yield part;
         }
@@ -1557,6 +1588,7 @@ export class OpenAIResponsesProvider implements ApiProvider {
     expectedIdentity: string,
     includeResponseIdInMarker: boolean,
     transportLabel: 'http' | 'sse' | 'websocket',
+    imageGenerationOutputMimeType: string,
   ): AsyncGenerator<vscode.LanguageModelResponsePart2> {
     // NOTE: The current behavior of VSCode is such that all Parts returned here will be
     // aggregated into a single Part during the next request, and only the Thinking part
@@ -1612,6 +1644,17 @@ export class OpenAIResponsesProvider implements ApiProvider {
           );
           break;
 
+        case 'image_generation_call': {
+          const imagePart = this.emitImageGenerationCallPart(
+            item,
+            imageGenerationOutputMimeType,
+          );
+          if (imagePart) {
+            yield imagePart;
+          }
+          break;
+        }
+
         default:
           throw new Error(`Unsupported output item type: ${item.type}`);
       }
@@ -1644,6 +1687,47 @@ export class OpenAIResponsesProvider implements ApiProvider {
 
   private parseArguments(argumentsJson: string): object {
     return parseToolArguments(argumentsJson);
+  }
+
+  private resolveImageGenerationOutputMimeType(
+    tools: ResponseCreateParamsBase['tools'],
+  ): string {
+    if (!tools) {
+      return 'image/png';
+    }
+
+    for (const tool of tools) {
+      if (!isResponseImageGenerationTool(tool)) {
+        continue;
+      }
+
+      switch (tool.output_format) {
+        case 'jpeg':
+          return 'image/jpeg';
+        case 'webp':
+          return 'image/webp';
+        case 'png':
+        case undefined:
+          return 'image/png';
+        default:
+          break;
+      }
+    }
+
+    return 'image/png';
+  }
+
+  private emitImageGenerationCallPart(
+    item: ResponseImageGenerationCall,
+    mimeType: string,
+  ): vscode.LanguageModelDataPart | undefined {
+    const base64Data =
+      typeof item.result === 'string' ? item.result.trim() : '';
+    if (!base64Data) {
+      return undefined;
+    }
+
+    return createImageDataPartFromBase64(base64Data, mimeType, mimeType);
   }
 
   private *emitThinkingText(
@@ -1741,6 +1825,7 @@ export class OpenAIResponsesProvider implements ApiProvider {
     expectedIdentity: string,
     includeResponseIdInMarker: boolean,
     transportLabel: 'http' | 'sse' | 'websocket',
+    imageGenerationOutputMimeType: string,
   ): AsyncGenerator<vscode.LanguageModelResponsePart2> {
     let usage: ResponseUsage | undefined;
     const emittedFunctionCallIds = new Set<string>();
@@ -1848,12 +1933,22 @@ export class OpenAIResponsesProvider implements ApiProvider {
           usage = response.usage ?? undefined;
 
           for (const item of response.output) {
-            if (item.type !== 'function_call') {
+            if (item.type === 'function_call') {
+              const part = emitFunctionCallPart(item);
+              if (part) {
+                yield part;
+              }
               continue;
             }
-            const part = emitFunctionCallPart(item);
-            if (part) {
-              yield part;
+
+            if (isResponseImageGenerationCall(item)) {
+              const imagePart = this.emitImageGenerationCallPart(
+                item,
+                imageGenerationOutputMimeType,
+              );
+              if (imagePart) {
+                yield imagePart;
+              }
             }
           }
           const reasonings = response.output.filter(

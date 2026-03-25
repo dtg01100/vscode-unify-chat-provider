@@ -419,14 +419,8 @@ export class OpenAIChatCompletionProvider implements ApiProvider {
       } else if (isInternalMarker(part)) {
         return undefined;
       } else if (isImageMarker(part)) {
-        if (
-          role === vscode.LanguageModelChatMessageRole.Assistant ||
-          role === vscode.LanguageModelChatMessageRole.System ||
-          role === 'from_tool_result'
-        ) {
-          throw new Error(
-            'Image parts can not appear in system, assistant, or tool_result messages',
-          );
+        if (role === vscode.LanguageModelChatMessageRole.System) {
+          throw new Error('Image parts can not appear in system messages');
         }
         const mimeType = normalizeImageMimeType(part.mimeType);
         if (!mimeType) {
@@ -440,9 +434,9 @@ export class OpenAIChatCompletionProvider implements ApiProvider {
             {
               type: 'image_url',
               image_url: {
-                url: `data:${part.mimeType};base64,${Buffer.from(
-                  part.data,
-                ).toString('base64')}`,
+                url: `data:${mimeType};base64,${Buffer.from(part.data).toString(
+                  'base64',
+                )}`,
               },
             },
           ],

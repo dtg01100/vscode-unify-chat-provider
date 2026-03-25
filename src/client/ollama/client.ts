@@ -19,6 +19,8 @@ import type {
   Tool,
 } from 'ollama';
 import {
+  createImageDataPartFromBase64,
+  createImageDataPartFromBytes,
   decodeStatefulMarkerPart,
   createStatefulMarkerIdentity,
   DEFAULT_NORMAL_TIMEOUT_CONFIG,
@@ -104,6 +106,20 @@ export class OllamaProvider implements ApiProvider {
       }),
       headers,
     });
+  }
+
+  private createOutputImagePart(
+    image: Uint8Array | string,
+  ): vscode.LanguageModelDataPart {
+    if (typeof image === 'string') {
+      return createImageDataPartFromBase64(
+        image,
+        'image/png',
+        'image/png',
+      );
+    }
+
+    return createImageDataPartFromBytes(image, 'image/png', 'image/png');
   }
 
   private convertMessages(
@@ -580,6 +596,12 @@ export class OllamaProvider implements ApiProvider {
       }
     }
 
+    if (raw.images) {
+      for (const image of raw.images) {
+        yield this.createOutputImagePart(image);
+      }
+    }
+
     yield encodeStatefulMarkerPart<Message>(expectedIdentity, raw);
 
     this.processUsage(
@@ -654,6 +676,12 @@ export class OllamaProvider implements ApiProvider {
             call.function.name,
             call.function.arguments,
           );
+        }
+      }
+
+      if (snapshot.images) {
+        for (const image of snapshot.images) {
+          yield this.createOutputImagePart(image);
         }
       }
 
