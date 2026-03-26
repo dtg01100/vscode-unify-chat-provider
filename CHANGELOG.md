@@ -1,5 +1,13 @@
 # Changelog
 
+## v5.9.0 - 2026-03-26
+
+### Features
+- add preset templates support (cd9bab8, SmallMain)
+
+### Chores
+- update dts files (8f2648b, SmallMain)
+
 ## v5.8.0 - 2026-03-25
 
 ### Features
