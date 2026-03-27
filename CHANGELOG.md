@@ -1,5 +1,10 @@
 # Changelog
 
+## v5.11.1 - 2026-03-27
+
+### Fixes
+- add new API endpoints for Streamlake integration (9dadc1a, SmallMain)
+
 ## v5.11.0 - 2026-03-27
 
 ### Features
