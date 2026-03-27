@@ -1,5 +1,10 @@
 # Changelog
 
+## v5.11.0 - 2026-03-27
+
+### Features
+- add support for edit tools capability in model configuration (4251402, SmallMain)
+
 ## v5.10.0 - 2026-03-27
 
 ### Features
