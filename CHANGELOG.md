@@ -1,5 +1,17 @@
 # Changelog
 
+## v5.14.0 - 2026-04-08
+
+### Features
+- add modelId variable to model display name template (430b79b, SmallMain)
+- add GPT-5.4 pro model to supported models list (26b71c6, SmallMain)
+
+### Fixes
+- Codex provider use native session ID and user agent (c8ece8f, SmallMain)
+
+### Chores
+- update CLI client references to CLIProxyAPI project (8c5ede9, SmallMain)
+
 ## v5.13.0 - 2026-04-08
 
 ### Features
