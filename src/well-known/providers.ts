@@ -34,7 +34,7 @@ export const WELL_KNOWN_PROVIDERS: WellKnownProviderConfig[] = [
       'gpt-5.4',
       'gpt-5.4-mini',
       'gpt-5.4-nano',
-      'gpt-5.2-pro',
+      'gpt-5.4-pro',
       'gpt-4.1',
       'gpt-oss-120b',
       'gpt-oss-20b',

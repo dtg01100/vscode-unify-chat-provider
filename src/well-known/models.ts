@@ -674,6 +674,26 @@ const _WELL_KNOWN_MODELS = [
     ],
   },
   {
+    id: 'gpt-5.4-pro',
+    name: 'GPT-5.4 pro',
+    maxInputTokens: 1050000,
+    maxOutputTokens: 128000,
+    stream: true,
+    tokenizer: 'openai',
+    thinking: {
+      type: 'enabled',
+      effort: 'xhigh',
+    },
+    capabilities: {
+      toolCalling: true,
+      imageInput: true,
+      editTools: 'apply-patch',
+    },
+    presetTemplates: [
+      openAiReasoningEffort(OPENAI_PRO_REASONING_EFFORTS, 'xhigh'),
+    ],
+  },
+  {
     id: 'gpt-5.4-mini',
     name: 'GPT-5.4 Mini',
     maxInputTokens: 400000,
