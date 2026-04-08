@@ -1,5 +1,14 @@
 # Changelog
 
+## v5.11.3 - 2026-04-08
+
+### Fixes
+- more robust rewrite code to avoid upstream non-standard data effects (3aa19b9, SmallMain)
+- the number of function response parts is equal to the number of function call parts of the function call turn (7124a3a, SmallMain)
+
+### Chores
+- add acknowledgements section to README files (362149a, SmallMain)
+
 ## v5.11.2 - 2026-04-08
 
 ### Features
