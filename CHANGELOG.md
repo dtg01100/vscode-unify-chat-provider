@@ -1,5 +1,11 @@
 # Changelog
 
+## v5.12.0 - 2026-04-08
+
+### Features
+- add Qwen3.6-Plus, GLM-5V-Turbo, Gemma 4 series to supported models list (7cca532, SmallMain)
+- update Qwen Code provider to use Qwen 3.6-Plus model (cb3f094, SmallMain)
+
 ## v5.11.3 - 2026-04-08
 
 ### Fixes
