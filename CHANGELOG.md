@@ -1,5 +1,18 @@
 # Changelog
 
+## v6.0.0 - 2026-04-09
+
+### Breaking Changes
+- make all configuration application-scoped and shared across profiles (7c44529, SmallMain)
+
+### Features
+- adjust maxInputTokens calculation to account for maxOutputTokens (8a90537, WangJerome)
+- add context window hook for usage reporting (09494eb, WangJerome)
+
+### Fixes
+- restore package-lcok.json (5757ea6, SmallMain)
+- add compatibility fix for context indicator display (a4ceec5, SmallMain)
+
 ## v5.14.0 - 2026-04-08
 
 ### Features
