@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ConfigStore } from './config-store';
+import { ConfigStore, CONFIG_NAMESPACE } from './config-store';
 import {
   SecretStore,
   migrateApiKeyToAuth,
@@ -39,8 +39,6 @@ import {
 } from './context-window-hook-bridge';
 
 const VENDOR_ID = 'unify-chat-provider';
-const CONFIG_NAMESPACE = 'unifyChatProvider';
-
 /**
  * Extension activation
  */
@@ -52,7 +50,6 @@ export async function activate(
 
   const configStore = new ConfigStore();
   const secretStore = new SecretStore(context.secrets);
-  registerIgnoredScopeConfigurationWarning(context, configStore);
 
   // Register URI handler (import-config + OAuth callbacks)
   const uriHandler = registerUriHandler(context, configStore, secretStore);
@@ -532,7 +529,7 @@ function registerSecretStorageMaintenance(
   configStore: ConfigStore,
   secretStore: SecretStore,
 ): void {
-  let lastGlobalStoreApiKeyInSettings = configStore.storeApiKeyInSettings;
+  let lastStoreApiKeyInSettings = configStore.storeApiKeyInSettings;
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (
@@ -540,17 +537,17 @@ function registerSecretStorageMaintenance(
       ) {
         return;
       }
-      const nextGlobalStoreApiKeyInSettings = configStore.storeApiKeyInSettings;
-      if (nextGlobalStoreApiKeyInSettings === lastGlobalStoreApiKeyInSettings) {
+      const nextStoreApiKeyInSettings = configStore.storeApiKeyInSettings;
+      if (nextStoreApiKeyInSettings === lastStoreApiKeyInSettings) {
         return;
       }
-      lastGlobalStoreApiKeyInSettings = nextGlobalStoreApiKeyInSettings;
+      lastStoreApiKeyInSettings = nextStoreApiKeyInSettings;
 
       enqueueMaintenance('migrate-api-key-storage-on-setting-change', async () => {
         await migrateApiKeyStorage({
           configStore,
           secretStore,
-          storeApiKeyInSettings: nextGlobalStoreApiKeyInSettings,
+          storeApiKeyInSettings: nextStoreApiKeyInSettings,
           showProgress: true,
         });
         await cleanupUnusedSecrets(secretStore);
@@ -572,47 +569,4 @@ function runSecretStorageMaintenanceOnStartup(
     });
     await cleanupUnusedSecrets(secretStore);
   });
-}
-
-function registerIgnoredScopeConfigurationWarning(
-  context: vscode.ExtensionContext,
-  configStore: ConfigStore,
-): void {
-  let hasWarnedThisSession = false;
-
-  const notifyIfNeeded = (): void => {
-    if (hasWarnedThisSession) {
-      return;
-    }
-
-    const ignoredKeys = configStore.getIgnoredNonGlobalKeys().sort();
-    if (ignoredKeys.length === 0) {
-      return;
-    }
-    hasWarnedThisSession = true;
-
-    const openUserSettingsAction = t('Open User Settings');
-    const message = t(
-      'Detected workspace-scoped settings for Unify Chat Provider ({0}). They are ignored and related credentials may be removed automatically. Please move them to user settings (global), then re-enter API keys or re-authorize OAuth if prompted.',
-      ignoredKeys.map((key) => `${CONFIG_NAMESPACE}.${key}`).join(', '),
-    );
-
-    void vscode.window
-      .showWarningMessage(message, openUserSettingsAction)
-      .then((selection) => {
-        if (selection === openUserSettingsAction) {
-          void vscode.commands.executeCommand('workbench.action.openSettingsJson');
-        }
-      });
-  };
-
-  notifyIfNeeded();
-  context.subscriptions.push(
-    vscode.workspace.onDidChangeConfiguration((e) => {
-      if (!e.affectsConfiguration(CONFIG_NAMESPACE)) {
-        return;
-      }
-      notifyIfNeeded();
-    }),
-  );
 }

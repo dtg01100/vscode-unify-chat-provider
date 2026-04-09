@@ -420,6 +420,8 @@ VS Code 的 Copilot Chat 本身就支持登录 GitHub Copilot 账号，所以一
 
 ### 全局设置
 
+所有 `unifyChatProvider.*` 设置项都是应用级作用域，会在同一台设备的不同 Profile 之间共享。
+
 <details>
 
 | 名称                 | ID                         | 介绍                                                                       |

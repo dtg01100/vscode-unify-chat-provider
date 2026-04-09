@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { CONFIG_NAMESPACE } from '../config-store';
 import { SecretStore } from './secret-store';
 import {
   isSecretRef,
@@ -6,8 +7,6 @@ import {
   buildRefFromUuid,
   SECRET_KEY_PREFIXES,
 } from './constants';
-
-const CONFIG_NAMESPACE = 'unifyChatProvider';
 
 function collectSecretRefsFromAny(raw: unknown, refs: Set<string>): void {
   if (typeof raw === 'string') {
@@ -34,7 +33,7 @@ function collectSecretRefsFromAny(raw: unknown, refs: Set<string>): void {
   }
 }
 
-function collectUsedSecretRefsFromGlobalScope(): Set<string> {
+function collectUsedSecretRefsFromConfiguredEndpoints(): Set<string> {
   const refs = new Set<string>();
 
   const addFromRaw = (raw: unknown): void => {
@@ -42,9 +41,7 @@ function collectUsedSecretRefsFromGlobalScope(): Set<string> {
   };
 
   const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
-  const inspection = config.inspect<unknown[]>('endpoints');
-
-  addFromRaw(inspection?.globalValue);
+  addFromRaw(config.get<unknown[]>('endpoints'));
 
   return refs;
 }
@@ -57,7 +54,7 @@ export async function cleanupUnusedSecrets(
     return;
   }
 
-  const usedRefs = collectUsedSecretRefsFromGlobalScope();
+  const usedRefs = collectUsedSecretRefsFromConfiguredEndpoints();
 
   const toDelete: string[] = [];
 

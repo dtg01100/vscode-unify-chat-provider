@@ -407,13 +407,10 @@ export function processUsage(
   // This hooks into the Copilot Chat internal API to report token counts
   // that the LanguageModelChatProvider API cannot natively convey.
   const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
-  const inspection = config.inspect<unknown>(
+  const fixEnabled = config.get<boolean>(
     FIX001_CONTEXT_INDICATOR_DISPLAY_CONFIG_KEY,
+    DEFAULT_FIX001_CONTEXT_INDICATOR_DISPLAY,
   );
-  const fixEnabled =
-    typeof inspection?.globalValue === 'boolean'
-      ? inspection.globalValue
-      : DEFAULT_FIX001_CONTEXT_INDICATOR_DISPLAY;
 
   if (fixEnabled) {
     reportUsageToContextWindowForRequest(logger.requestId, usage);

@@ -34,7 +34,7 @@ export const DEFAULT_FIX001_CONTEXT_INDICATOR_DISPLAY = true;
 const MIN_BALANCE_WARNING_TIME_THRESHOLD_DAYS = 0;
 const MIN_BALANCE_WARNING_AMOUNT_THRESHOLD = 0;
 const MIN_BALANCE_WARNING_TOKEN_THRESHOLD_MILLIONS = 0;
-const GLOBAL_ONLY_CONFIG_KEYS = [
+const OBSERVED_CONFIG_KEYS = [
   'endpoints',
   'verbose',
   'modelDisplayNameTemplate',
@@ -49,9 +49,7 @@ const GLOBAL_ONLY_CONFIG_KEYS = [
   'balanceWarning.tokenThresholdMillions',
 ] as const;
 
-/**
- * Extension configuration stored in user (global) settings.
- */
+/** Extension configuration stored in VS Code application-scoped user settings. */
 export interface ExtensionConfiguration {
   endpoints: ProviderConfig[];
   modelDisplayNameTemplate: string;
@@ -77,31 +75,27 @@ export interface BalanceWarningConfiguration {
   tokenThresholdMillions: number;
 }
 
-/**
- * Manages extension configuration stored in VS Code user (global) settings.
- *
- * Workspace/workspaceFolder scoped overrides are intentionally ignored.
- */
+/** Manages extension configuration stored in VS Code application-scoped user settings. */
 export class ConfigStore {
   private readonly _onDidChange = new vscode.EventEmitter<void>();
   readonly onDidChange = this._onDidChange.event;
 
-  private globalSignature: string;
+  private configurationSignature: string;
   private _disposable: vscode.Disposable;
 
   constructor() {
-    this.globalSignature = this.computeGlobalSignature();
+    this.configurationSignature = this.computeConfigurationSignature();
     this._disposable = vscode.workspace.onDidChangeConfiguration((e) => {
       if (!e.affectsConfiguration(CONFIG_NAMESPACE)) {
         return;
       }
 
-      const nextSignature = this.computeGlobalSignature();
-      if (nextSignature === this.globalSignature) {
+      const nextSignature = this.computeConfigurationSignature();
+      if (nextSignature === this.configurationSignature) {
         return;
       }
 
-      this.globalSignature = nextSignature;
+      this.configurationSignature = nextSignature;
       this._onDidChange.fire();
     });
   }
@@ -110,8 +104,8 @@ export class ConfigStore {
    * Get all configured endpoints
    */
   get endpoints(): ProviderConfig[] {
-    const rawGlobal = this.readGlobalUnknown('endpoints');
-    const rawEndpoints = Array.isArray(rawGlobal) ? rawGlobal : [];
+    const raw = this.readConfiguredUnknown('endpoints');
+    const rawEndpoints = Array.isArray(raw) ? raw : [];
 
     return rawEndpoints
       .map((raw) => this.normalizeProviderConfig(raw))
@@ -124,20 +118,20 @@ export class ConfigStore {
    * This is only intended for startup-time migration of legacy config fields.
    */
   get rawEndpoints(): unknown[] {
-    const rawGlobal = this.readGlobalUnknown('endpoints');
-    return Array.isArray(rawGlobal) ? rawGlobal : [];
+    const raw = this.readConfiguredUnknown('endpoints');
+    return Array.isArray(raw) ? raw : [];
   }
 
   /**
    * Whether verbose logging is enabled
    */
   get verbose(): boolean {
-    const rawVerbose = this.readGlobalUnknown('verbose');
+    const rawVerbose = this.readConfiguredUnknown('verbose');
     return typeof rawVerbose === 'boolean' ? rawVerbose : false;
   }
 
   get modelDisplayNameTemplate(): string {
-    const raw = this.readGlobalUnknown('modelDisplayNameTemplate');
+    const raw = this.readConfiguredUnknown('modelDisplayNameTemplate');
     return typeof raw === 'string' ? raw : DEFAULT_MODEL_DISPLAY_NAME_TEMPLATE;
   }
 
@@ -145,12 +139,12 @@ export class ConfigStore {
    * Whether to store API keys in settings.json instead of VS Code Secret Storage.
    */
   get storeApiKeyInSettings(): boolean {
-    const raw = this.readGlobalUnknown('storeApiKeyInSettings');
+    const raw = this.readConfiguredUnknown('storeApiKeyInSettings');
     return typeof raw === 'boolean' ? raw : false;
   }
 
   get fix001ContextIndicatorDisplay(): boolean {
-    const raw = this.readGlobalUnknown(
+    const raw = this.readConfiguredUnknown(
       FIX001_CONTEXT_INDICATOR_DISPLAY_CONFIG_KEY,
     );
     return typeof raw === 'boolean'
@@ -165,10 +159,10 @@ export class ConfigStore {
   }
 
   /**
-   * Global periodic refresh interval for provider balances (milliseconds).
+   * Periodic refresh interval for provider balances (milliseconds).
    */
   get balanceRefreshIntervalMs(): number {
-    const raw = this.readGlobalUnknown('balanceRefreshIntervalMs');
+    const raw = this.readConfiguredUnknown('balanceRefreshIntervalMs');
     return this.readIntegerAtLeast(
       raw,
       DEFAULT_BALANCE_REFRESH_INTERVAL_MS,
@@ -177,10 +171,10 @@ export class ConfigStore {
   }
 
   /**
-   * Global throttle window for provider balance refresh (milliseconds).
+   * Throttle window for provider balance refresh (milliseconds).
    */
   get balanceThrottleWindowMs(): number {
-    const raw = this.readGlobalUnknown('balanceThrottleWindowMs');
+    const raw = this.readConfiguredUnknown('balanceThrottleWindowMs');
     return this.readIntegerAtLeast(
       raw,
       DEFAULT_BALANCE_THROTTLE_WINDOW_MS,
@@ -189,18 +183,18 @@ export class ConfigStore {
   }
 
   get balanceStatusBarIcon(): string {
-    const raw = this.readGlobalUnknown('balanceStatusBarIcon');
+    const raw = this.readConfiguredUnknown('balanceStatusBarIcon');
 
     return typeof raw === 'string' ? raw : DEFAULT_BALANCE_STATUS_BAR_ICON;
   }
 
   get balanceWarningEnabled(): boolean {
-    const raw = this.readGlobalUnknown('balanceWarning.enabled');
+    const raw = this.readConfiguredUnknown('balanceWarning.enabled');
     return typeof raw === 'boolean' ? raw : DEFAULT_BALANCE_WARNING_ENABLED;
   }
 
   get balanceWarningTimeThresholdDays(): number {
-    const raw = this.readGlobalUnknown('balanceWarning.timeThresholdDays');
+    const raw = this.readConfiguredUnknown('balanceWarning.timeThresholdDays');
     return this.readNumberAtLeast(
       raw,
       DEFAULT_BALANCE_WARNING_TIME_THRESHOLD_DAYS,
@@ -209,7 +203,7 @@ export class ConfigStore {
   }
 
   get balanceWarningAmountThreshold(): number {
-    const raw = this.readGlobalUnknown('balanceWarning.amountThreshold');
+    const raw = this.readConfiguredUnknown('balanceWarning.amountThreshold');
     return this.readNumberAtLeast(
       raw,
       DEFAULT_BALANCE_WARNING_AMOUNT_THRESHOLD,
@@ -218,7 +212,7 @@ export class ConfigStore {
   }
 
   get balanceWarningTokenThresholdMillions(): number {
-    const raw = this.readGlobalUnknown('balanceWarning.tokenThresholdMillions');
+    const raw = this.readConfiguredUnknown('balanceWarning.tokenThresholdMillions');
     return this.readNumberAtLeast(
       raw,
       DEFAULT_BALANCE_WARNING_TOKEN_THRESHOLD_MILLIONS,
@@ -251,54 +245,17 @@ export class ConfigStore {
     };
   }
 
-  /**
-   * Returns config keys that have workspace/workspaceFolder overrides and are ignored.
-   */
-  getIgnoredNonGlobalKeys(): string[] {
-    const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
-    const ignored: string[] = [];
-
-    for (const key of GLOBAL_ONLY_CONFIG_KEYS) {
-      const inspection = config.inspect<unknown>(key);
-      const hasWorkspace = inspection?.workspaceValue !== undefined;
-      const hasWorkspaceFolder =
-        inspection?.workspaceFolderValue !== undefined ||
-        this.hasWorkspaceFolderOverride(key);
-
-      if (hasWorkspace || hasWorkspaceFolder) {
-        ignored.push(key);
-      }
-    }
-
-    return ignored;
-  }
-
-  private computeGlobalSignature(): string {
+  private computeConfigurationSignature(): string {
     const snapshot: Record<string, unknown> = {};
-    for (const key of GLOBAL_ONLY_CONFIG_KEYS) {
-      snapshot[key] = this.readGlobalUnknown(key);
+    for (const key of OBSERVED_CONFIG_KEYS) {
+      snapshot[key] = this.readConfiguredUnknown(key);
     }
     return JSON.stringify(snapshot);
   }
 
-  private readGlobalUnknown(key: string): unknown {
+  private readConfiguredUnknown(key: string): unknown {
     const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
-    const inspection = config.inspect<unknown>(key);
-    return inspection?.globalValue;
-  }
-
-  private hasWorkspaceFolderOverride(key: string): boolean {
-    for (const folder of vscode.workspace.workspaceFolders ?? []) {
-      const folderConfig = vscode.workspace.getConfiguration(
-        CONFIG_NAMESPACE,
-        folder.uri,
-      );
-      const inspection = folderConfig.inspect<unknown>(key);
-      if (inspection?.workspaceFolderValue !== undefined) {
-        return true;
-      }
-    }
-    return false;
+    return config.get<unknown>(key);
   }
 
   private readIntegerAtLeast(
@@ -526,7 +483,7 @@ export class ConfigStore {
 
   /**
    * Save endpoints to configuration
-   * Always writes to user (global) settings.
+   * Always writes to application-scoped user settings.
    */
   async setEndpoints(endpoints: ProviderConfig[]): Promise<void> {
     const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);

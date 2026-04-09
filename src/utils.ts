@@ -221,7 +221,7 @@ function applyRetryOverrides(
   if (jitterFactor !== undefined) target.jitterFactor = jitterFactor;
 }
 
-function readGlobalChatNetworkOverrides(): {
+function readConfiguredChatNetworkOverrides(): {
   timeout?: unknown;
   retry?: unknown;
 } {
@@ -242,7 +242,7 @@ function readGlobalChatNetworkOverrides(): {
  *
  * Merge order:
  * 1) Built-in defaults (DEFAULT_CHAT_*)
- * 2) Global settings: `unifyChatProvider.networkSettings`
+ * 2) Application-scoped settings: `unifyChatProvider.networkSettings`
  * 3) Provider overrides (stored in the provider config)
  */
 export function resolveChatNetwork(
@@ -262,9 +262,9 @@ export function resolveChatNetwork(
     },
   };
 
-  const global = readGlobalChatNetworkOverrides();
-  applyTimeoutOverrides(resolved.timeout, global.timeout);
-  applyRetryOverrides(resolved.retry, global.retry);
+  const configured = readConfiguredChatNetworkOverrides();
+  applyTimeoutOverrides(resolved.timeout, configured.timeout);
+  applyRetryOverrides(resolved.retry, configured.retry);
 
   applyTimeoutOverrides(resolved.timeout, overrides?.timeout);
   applyRetryOverrides(resolved.retry, overrides?.retry);

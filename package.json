@@ -186,49 +186,58 @@
       "properties": {
         "unifyChatProvider.verbose": {
           "type": "boolean",
+          "scope": "application",
           "description": "%configuration.verbose.description%",
           "default": false
         },
         "unifyChatProvider.modelDisplayNameTemplate": {
           "type": "string",
+          "scope": "application",
           "description": "%configuration.modelDisplayNameTemplate.description%",
           "default": "{modelName}"
         },
         "unifyChatProvider.storeApiKeyInSettings": {
           "type": "boolean",
+          "scope": "application",
           "description": "%configuration.storeApiKeyInSettings.description%",
           "default": false
         },
         "unifyChatProvider.fixes.fix001ContextIndicatorDisplay": {
           "type": "boolean",
+          "scope": "application",
           "description": "%configuration.fixes.fix001ContextIndicatorDisplay.description%",
           "default": true
         },
         "unifyChatProvider.balanceRefreshIntervalMs": {
           "type": "integer",
+          "scope": "application",
           "description": "%configuration.balanceRefreshIntervalMs.description%",
           "default": 60000,
           "minimum": 1000
         },
         "unifyChatProvider.balanceThrottleWindowMs": {
           "type": "integer",
+          "scope": "application",
           "description": "%configuration.balanceThrottleWindowMs.description%",
           "default": 10000,
           "minimum": 0
         },
         "unifyChatProvider.balanceStatusBarIcon": {
           "type": "string",
+          "scope": "application",
           "description": "%configuration.balanceStatusBarIcon.description%",
           "default": "$(credit-card)"
         },
         "unifyChatProvider.balanceWarning.enabled": {
           "type": "boolean",
+          "scope": "application",
           "description": "%configuration.balanceWarning.enabled.description%",
           "default": true,
           "order": 1
         },
         "unifyChatProvider.balanceWarning.timeThresholdDays": {
           "type": "number",
+          "scope": "application",
           "description": "%configuration.balanceWarning.timeThresholdDays.description%",
           "default": 1,
           "minimum": 0,
@@ -236,6 +245,7 @@
         },
         "unifyChatProvider.balanceWarning.amountThreshold": {
           "type": "number",
+          "scope": "application",
           "description": "%configuration.balanceWarning.amountThreshold.description%",
           "default": 1,
           "minimum": 0,
@@ -243,6 +253,7 @@
         },
         "unifyChatProvider.balanceWarning.tokenThresholdMillions": {
           "type": "number",
+          "scope": "application",
           "description": "%configuration.balanceWarning.tokenThresholdMillions.description%",
           "default": 1,
           "minimum": 0,
@@ -250,6 +261,7 @@
         },
         "unifyChatProvider.networkSettings": {
           "type": "object",
+          "scope": "application",
           "description": "%configuration.networkSettings.description%",
           "properties": {
             "timeout": {
@@ -303,6 +315,7 @@
         },
         "unifyChatProvider.endpoints": {
           "type": "array",
+          "scope": "application",
           "description": "%configuration.endpoints.description%",
           "items": {
             "type": "object",

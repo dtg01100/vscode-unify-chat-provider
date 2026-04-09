@@ -420,6 +420,8 @@ Use this feature to monitor provider balances in `Provider Settings`.
 
 ### Global Settings
 
+All `unifyChatProvider.*` settings are application-scoped and shared across profiles on the same device.
+
 <details>
 
 | Name                        | ID                         | Description                                                                               |

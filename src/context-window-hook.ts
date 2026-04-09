@@ -102,13 +102,10 @@ let initializationGeneration = 0;
 
 function isContextIndicatorDisplayFixEnabled(): boolean {
   const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
-  const inspection = config.inspect<unknown>(
+  return config.get<boolean>(
     FIX001_CONTEXT_INDICATOR_DISPLAY_CONFIG_KEY,
+    DEFAULT_FIX001_CONTEXT_INDICATOR_DISPLAY,
   );
-  const enabled = inspection?.globalValue;
-  return typeof enabled === 'boolean'
-    ? enabled
-    : DEFAULT_FIX001_CONTEXT_INDICATOR_DISPLAY;
 }
 
 function createUsageChunk(usage: {

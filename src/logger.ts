@@ -4,6 +4,7 @@ import type { BetaUsage } from '@anthropic-ai/sdk/resources/beta/messages';
 import type { CompletionUsage } from 'openai/resources/completions';
 import type { ResponseUsage } from 'openai/resources/responses/responses';
 import type { GenerateContentResponseUsageMetadata } from '@google/genai';
+import { CONFIG_NAMESPACE } from './config-store';
 
 const CHANNEL_NAME = 'Unify Chat Provider';
 
@@ -23,10 +24,8 @@ function getChannel(): vscode.LogOutputChannel {
 }
 
 function isVerboseEnabled(): boolean {
-  const config = vscode.workspace.getConfiguration('unifyChatProvider');
-  const inspection = config.inspect<unknown>('verbose');
-  const verbose = inspection?.globalValue;
-  return typeof verbose === 'boolean' ? verbose : false;
+  const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
+  return config.get<boolean>('verbose', false);
 }
 
 function maskSensitiveHeaders(
